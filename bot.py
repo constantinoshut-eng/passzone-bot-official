@@ -306,5 +306,48 @@ async def main():
     print("Bot started...")
     await dp.start_polling(bot)
 
+# --- Запуск ---
+async def main():
+    print("Bot started...")
+    await dp.start_polling(bot)
+
+
+# ⬇️ ВСТАВЬ ЭТО ВМЕСТО asyncio.run(main())
+import asyncio
+import logging
+
+from aiogram.exceptions import (
+    TelegramNetworkError,
+    TelegramRetryAfter,
+    TelegramConflictError
+)
+from aiohttp import ClientConnectorError
+
+
+async def start_bot():
+    await main()
+
+
+async def resilient_runner():
+    backoff = 5  # стартовая пауза между попытками (сек)
+    while True:
+        try:
+            await start_bot()
+        except (TelegramNetworkError, TelegramRetryAfter, TelegramConflictError, ClientConnectorError, TimeoutError) as e:
+            logging.warning(f"[resilient] polling error: {e}. retry in {backoff}s")
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 60)
+            continue
+        except Exception as e:
+            logging.exception(f"[resilient] unexpected error: {e}. restart in {backoff}s")
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 60)
+            continue
+        else:
+            logging.warning("[resilient] polling finished gracefully. restarting in 5s")
+            await asyncio.sleep(5)
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(resilient_runner())
+
